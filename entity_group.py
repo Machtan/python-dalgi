@@ -55,14 +55,15 @@ class EntityGroup:
         
         self._entities.add(entity)
     
-    def register_message(self, message: str):
-        assert(message not in self._messages)
-        self._messages.add(message)
-        self._message_handlers[message] = {}
+    def register_messages(self, *messages: str):
+        for message in messages:
+            self._messages.add(message)
+            if not message in self._message_handlers:
+                self._message_handlers[message] = {}
     
     def connect(self, entity, message: str, handler):
-        assert(message in self._messages)
-        handlers = self._message_handlers[message]
+        #print("Connecting {} -> {}".format(entity, message))
+        handlers = self._message_handlers.setdefault(message, {})
         assert(entity not in handlers)
         handlers[entity] = handler
     
@@ -71,14 +72,25 @@ class EntityGroup:
         for handler in self._message_handlers[message].values():
             handler(*args)
     
-    def validate_messages(self):
+    def validate_message_connections(self, ignore=None):
         """Validates that all messages are used"""
+        if ignore is None:
+            ignore = set()
         unused = []
+        unregistered = []
         for message, handlers in self._message_handlers.items():
+            if message not in self._messages:
+                unregistered.append(message)
+                continue
             if not handlers:
+                if message in ignore:
+                    continue
                 unused.append(message)
-        if unused:
-            raise Exception("Unused message type(s): {}".format(unused))
+        
+        if unused or unregistered:
+            raise Exception("Unregistered message(s): {}, Unused message type(s): {}".format(
+                unregistered, unused
+            ))
     
     def remove(self, entity):
         """Queues the removal of this entity at the beginning of the next call
@@ -106,6 +118,10 @@ class EntityGroup:
                     if ent == entity:
                         self._listeners[category].remove(i)
                         break
+        
+        for handlers in self._message_handlers.values():
+            if entity in handlers:
+                handlers.remove(entity)
         
         self._entities.remove(entity)
     
@@ -154,7 +170,7 @@ class EntityGroup:
     def draw(self, renderer, ox=0, oy=0):
         for layer in self._layers:
             for entity in self._drawables[layer]:
-                entity.draw(renderer, ox, oy)
+                entity.draw(renderer, self.x+ox, self.y+oy)
     
     def key_pressed(self, event):
         for listener in self._listeners["key_pressed"]:
@@ -168,25 +184,26 @@ class EntityGroup:
         for listener in self._listeners["key_released"]:
             listener.key_released(event)
     
-    def mouse_moved(self, x, y, dx, dy):
+    # TODO: Check that this is correct behavior for nested groups
+    def mouse_moved(self, sx, sy, x, y, dx, dy):
         for listener in self._listeners["mouse_moved"]:
-            listener.mouse_moved(x, y, dx, dy)
+            listener.mouse_moved(sx, sy, x-self.x, y-self.y, dx, dy)
     
-    def mouse_pressed(self, x, y, button, is_touch):
+    def mouse_pressed(self, sx, sy, x, y, button, is_touch):
         for listener in self._listeners["mouse_pressed"]:
-            listener.mouse_pressed(x, y, button, is_touch)
+            listener.mouse_pressed(sx, sy, x-self.x, y-self.y, button, is_touch)
     
-    def mouse_released(self, x, y, button, is_touch):
+    def mouse_released(self, sx, sy, x, y, button, is_touch):
         for listener in self._listeners["mouse_released"]:
-            listener.mouse_released(x, y, button, is_touch)
+            listener.mouse_released(sx, sy, x-self.x, y-self.y, button, is_touch)
+    
+    def mouse_scrolled(self, dx, dy, direction):
+        for listener in self._listeners["mouse_scrolled"]:
+            listener.mouse_scrolled(dx, dy, direction)
     
     def text_input(self, text):
         for listener in self._listeners["text_input"]:
             listener.text_input(text)
-    
-    def mouse_scrolled(self, dx, dy):
-        for listener in self._listeners["mouse_scrolled"]:
-            listener.mouse_scrolled(dx, dy)
     
     def directory_dropped(self, path):
         for listener in self._listeners["directory_dropped"]:
@@ -219,17 +236,16 @@ class EntityGroup:
             self.key_released(event)
         
         elif t == MouseButtonDown:
-            self.mouse_pressed(event.x, event.y, event.button, False)
+            self.mouse_pressed(event.x, event.y, event.x, event.y, event.button, False)
         
         elif t == MouseButtonUp:
-            self.mouse_released(event.x, event.y, event.button, False)
+            self.mouse_released(event.x, event.y, event.x, event.y, event.button, False)
         
         elif t == MouseMotion:
-            self.mouse_moved(event.x, event.y, event.xrel, event.yrel)
+            self.mouse_moved(event.x, event.y, event.x, event.y, event.xrel, event.yrel)
         
         elif t == MouseWheel:
-            #self.mouse_scrolled()
-            pass
+            self.mouse_scrolled(event.x, event.y, event.direction)
         
         elif t == TextInput:
             self.text_input(event.text)
