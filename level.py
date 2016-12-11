@@ -15,7 +15,7 @@ def load_level(level: str, group: EntityGroup, resources: Resources, constructor
     for ent in data.get("entities", []):
         t = ent["type"]
         if t not in constructors:
-            raise ValueError("Class {!r} not found!".format(t)) from e
+            raise ValueError("Class {!r} not found!".format(t))
         constructor = constructors[t]
         if type(constructor) is not type:
             raise TypeError("{!r} ({}) is not a valid constructor!".format(

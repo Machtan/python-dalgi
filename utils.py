@@ -1,8 +1,12 @@
 import time
-from sdl2 import init_everything
+from sdl2 import init_everything, Renderer, Window
 from dalgi import EntityGroup
+from typing import Callable, Union
 
-def run_simple_main_loop(setup_function, title="Dalgi", frame_sleep_time=0.001):
+Number = Union[float, int]
+
+def run_simple_main_loop(setup_function: Callable[[Window, Renderer, EntityGroup], None],
+        title: str="Dalgi", frame_sleep_time: Number=0.001):
     """Starts a simple dalgi SDL2 main loop after running the setup function.
     The function should have the following signature:
     setup_function(window, renderer, entity_group)"""
@@ -40,3 +44,9 @@ def run_simple_main_loop(setup_function, title="Dalgi", frame_sleep_time=0.001):
             
             # act nice
             time.sleep(frame_sleep_time)
+
+class Ref:
+    """A simple object to wrap primitives when modifying them from closures."""
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
