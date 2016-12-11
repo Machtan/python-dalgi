@@ -178,7 +178,7 @@ class EntityGroup:
     
     def draw(self, renderer: Renderer):
         """Called when it is time to render the frame."""
-        with renderer.offset_context(self.x, self.y):
+        with renderer.offset_context(self.x, self.y, force=True):
             for layer in self._layers:
                 for entity in self._drawables[layer]:
                     entity.draw(renderer, self.x, self.y)
